@@ -65,7 +65,6 @@ func (p *PortAudio) WriteStreamTo(c io.ReadWriteCloser, chunkSize int, done chan
 			buffer[i] = v
 			sum += v
 		}
-		// "bigEndianFloat32ToBytes then c.Write" should be faster than binary.Write(c, binary.BigEndian, &buffer)
 		err := bigEndianFloat32ToBytes(buffer, &byteBuffer)
 		if err != nil {
 			println(err.Error())
@@ -73,10 +72,11 @@ func (p *PortAudio) WriteStreamTo(c io.ReadWriteCloser, chunkSize int, done chan
 		} else {
 			_, err = c.Write(byteBuffer)
 			if err != nil {
-				// After one write there is always
-				// is it  related to ACK https://stackoverflow.com/questions/46697799/golang-udp-connection-refused-on-every-other-write
-				// println(err.Error())
-				//<-done
+				// After one write there is always an error
+				// Explanation: https://stackoverflow.com/questions/46697799/golang-udp-connection-refused-on-every-other-write
+				// " Because UDP has no real connection and there is no ACK for any packets sent,
+				// the best a "connected" UDP socket can do to simulate a send failure is to save the ICMP response,
+				// and return it as an error on the next write."
 			} else {
 				if p.Echo {
 					printFrame(sum)
