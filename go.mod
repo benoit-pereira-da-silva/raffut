@@ -1,4 +1,4 @@
-module Raffut
+module github.com/benoit-pereira-da-silva/raffut
 
 go 1.17
 

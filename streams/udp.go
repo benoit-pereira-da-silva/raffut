@@ -1,4 +1,4 @@
-package raffut
+package streams
 
 import (
 	"net"
@@ -19,8 +19,6 @@ func ReceiveUDP(address string) (err error) {
 	}
 	p := PortAudio{Echo: false, SampleRate: sampleRate}
 	p.ReadStreamFrom(conn, udpChunkSize, nil)
-	//c := Console{}
-	//c.print(conn, udpChunkSize, nil)
 	return nil
 }
 

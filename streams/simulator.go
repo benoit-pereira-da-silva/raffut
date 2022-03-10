@@ -1,9 +1,10 @@
-package raffut
+package streams
 
 import (
 	"encoding/binary"
 	"io"
 	"math/rand"
+	"net"
 	"time"
 )
 
@@ -32,4 +33,22 @@ func (p *Simulator) WriteStreamTo(c io.ReadWriteCloser, chunkSize int, done chan
 		}
 		time.Sleep(st) // Sleep according to the sample rate?
 	}
+}
+
+func SimulateUDPSending(address string) (err error) {
+	rAddr, err := net.ResolveUDPAddr("udp", address)
+	if err != nil {
+		return err
+	}
+	conn, err := net.DialUDP("udp", nil, rAddr)
+	if err != nil {
+		return err
+	}
+	println("LocalAddr", conn.LocalAddr().String())
+	if rAddr != nil {
+		println("RemoteAddr", rAddr.String())
+	}
+	p := Simulator{Echo: true}
+	p.WriteStreamTo(conn, udpChunkSize, nil)
+	return
 }

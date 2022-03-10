@@ -1,14 +1,12 @@
-package raffut
+package streams
 
 import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"net"
 )
 
 // A bunch of function to print frames and evaluate silence detection algorithms
-
 var frameMax = 0
 
 const fbLen = 100
@@ -52,24 +50,6 @@ func (p *Console) print(c io.ReadWriteCloser, chunkSize int, done chan interface
 	}
 }
 
-func printFromUDPConnection(c *net.UDPConn, chunkSize int, done chan interface{}) {
-	buffer := make([]float32, chunkSize)
-	for {
-		select {
-		case <-done:
-			return
-		default:
-			binary.Read(c, binary.BigEndian, &buffer)
-			sum := float32(0)
-			for i := range buffer {
-				sum += buffer[i]
-			}
-			printFrame(sum)
-
-		}
-	}
-}
-
 func printFrame(f float32) {
 	green := "\033[32m"
 	displayLen := 50
@@ -78,7 +58,7 @@ func printFrame(f float32) {
 		// abs
 		v = -v
 	}
-	fillFramerBuffer(v)
+	fillFrameBuffer(v)
 	fm := vMax(v)
 	threshold := 0
 	if fm != 0 {
@@ -103,7 +83,7 @@ func printFrame(f float32) {
 	println(str)
 }
 
-func fillFramerBuffer(v int) {
+func fillFrameBuffer(v int) {
 	// Fill the buffer.
 	frameBuffer[sIdx] = v * precision
 	sIdx++
