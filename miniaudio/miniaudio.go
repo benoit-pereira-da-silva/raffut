@@ -44,7 +44,6 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadWriteCloser) error {
 	deviceConfig.Alsa.NoMMap = 2
 	// This is the function that's used for sending more data to the device for playback.
 	onSamples := func(pOutputSample, pInputSamples []byte, framecount uint32) {
-		println(len(pOutputSample))
 		io.ReadFull(reader, pOutputSample)
 		if p.echo {
 			sum := float32(0)
