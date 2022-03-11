@@ -5,7 +5,6 @@
 *.so
 *.dylib
 .idea/
-raffut
 
 # Test binary, built with `go test -c`
 *.test
@@ -15,3 +14,5 @@ raffut
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+/raffut
+/gon.json

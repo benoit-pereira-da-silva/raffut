@@ -4,8 +4,8 @@ import (
 	"net"
 )
 
-func ReceiveUDP(address string) (err error) {
-	rAddr, err := net.ResolveUDPAddr("udp", address)
+func ReceiveUDP(s Streamable) (err error) {
+	rAddr, err := net.ResolveUDPAddr("udp", (s).Address())
 	if err != nil {
 		return err
 	}
@@ -17,13 +17,11 @@ func ReceiveUDP(address string) (err error) {
 	if rAddr != nil {
 		println("RemoteAddr", rAddr.String())
 	}
-	p := PortAudio{Echo: false, SampleRate: sampleRate}
-	p.ReadStreamFrom(conn, udpChunkSize, nil)
-	return nil
+	return (s).ReadStreamFrom(conn)
 }
 
-func SendUDP(address string) (err error) {
-	rAddr, err := net.ResolveUDPAddr("udp", address)
+func SendUDP(s Streamable) (err error) {
+	rAddr, err := net.ResolveUDPAddr("udp", (s).Address())
 	if err != nil {
 		return err
 	}
@@ -35,8 +33,5 @@ func SendUDP(address string) (err error) {
 	if rAddr != nil {
 		println("RemoteAddr", rAddr.String())
 	}
-	//p := Simulator{Echo: true}
-	p := PortAudio{Echo: false, SampleRate: sampleRate}
-	p.WriteStreamTo(conn, udpChunkSize, nil)
-	return
+	return (s).WriteStreamTo(conn)
 }
