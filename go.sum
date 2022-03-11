@@ -1,4 +1,2 @@
-github.com/gen2brain/malgo v0.10.35 h1:D6aNo/Q0SnzQLHomTydTXxj4AJFdGJcVoE7I8JxPoUo=
-github.com/gen2brain/malgo v0.10.35/go.mod h1:zHSUNZAXfCeNsZou0RtQ6Zk7gDYLIcKOrUWtAdksnEs=
-github.com/gordonklaus/portaudio v0.0.0-20200911161147-bb74aa485641 h1:B7ADnac3Yy6Vtcp2mstnsjUtarYcjy4AL0R6eNEhZAk=
-github.com/gordonklaus/portaudio v0.0.0-20200911161147-bb74aa485641/go.mod h1:HfYnZi/ARQKG0dwH5HNDmPCHdLiFiBf+SI7DbhW7et4=
+github.com/benoit-pereira-da-silva/malgo v0.10.35 h1:vzV3jFnw1SyoHuQo/Xu00xRrq/SZWHoHh2fR/8CQTIs=
+github.com/benoit-pereira-da-silva/malgo v0.10.35/go.mod h1:6jkFAob9HKD47/Aktigwn79RE5StNaFsBaMm7YDeEBQ=

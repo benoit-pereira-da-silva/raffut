@@ -1,5 +1,5 @@
 # raffut
-- Realtime UDP audio streaming without any dependance in go using [Miniaudio](http://https://miniaud.io)
+- Realtime UDP audio streaming without any dependency using [Miniaudio](https://miniaud.io)
 - There is an alternative implementation using [Portaudio](https://github.com/benoit-pereira-da-silva/raffut-portaudio)
 
 # build:

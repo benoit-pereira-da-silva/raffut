@@ -1,9 +1,9 @@
 package miniaudio
 
 import (
+	"github.com/benoit-pereira-da-silva/malgo"
 	"github.com/benoit-pereira-da-silva/raffut/console"
 	"github.com/benoit-pereira-da-silva/raffut/streams"
-	"github.com/gen2brain/malgo"
 	"io"
 	"math"
 )
