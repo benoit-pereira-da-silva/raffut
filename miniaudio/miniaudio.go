@@ -1,13 +1,11 @@
 package miniaudio
 
 import (
-	"fmt"
 	"github.com/benoit-pereira-da-silva/raffut/console"
 	"github.com/benoit-pereira-da-silva/raffut/streams"
 	"github.com/gen2brain/malgo"
 	"io"
 	"math"
-	"os"
 )
 
 // Miniaudio Streamable support.
@@ -27,11 +25,10 @@ type Miniaudio struct {
 func (p *Miniaudio) ReadStreamFrom(c io.ReadWriteCloser) error {
 	var reader io.Reader = c
 	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
-		fmt.Printf("LOG <%v>\n", message)
+		println(message)
 	})
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return err
 	}
 	defer func() {
 		_ = ctx.Uninit()
@@ -78,7 +75,7 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadWriteCloser) error {
 // then write them to the stream.
 func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
-		fmt.Printf("LOG <%v>\n", message)
+		println(message)
 	})
 	if err != nil {
 		return err
