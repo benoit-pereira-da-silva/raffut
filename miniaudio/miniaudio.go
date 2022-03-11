@@ -5,7 +5,6 @@ import (
 	"github.com/benoit-pereira-da-silva/raffut/console"
 	"github.com/benoit-pereira-da-silva/raffut/streams"
 	"io"
-	"math"
 )
 
 // Miniaudio Streamable support.
@@ -13,11 +12,19 @@ import (
 // "Miniaudio is an audio playback and capture library for C and C++.
 // It's made up of a single source file, has no external dependencies and is released into the public domain."
 // We use the embedded go bindings [malgo](https://github.com/gen2brain/malgo)
+//	+---------------+----------------------------------------+---------------------------+
+//	| ma_format_f32 | 32-bit floating point                  | [-1, 1]                   |
+//	| ma_format_s16 | 16-bit signed integer                  | [-32768, 32767]           |
+//	| ma_format_s24 | 24-bit signed integer (tightly packed) | [-8388608, 8388607]       |
+//	| ma_format_s32 | 32-bit signed integer                  | [-2147483648, 2147483647] |
+//	| ma_format_u8  | 8-bit unsigned integer                 | [0, 255]                  |
+//	+---------------+----------------------------------------+---------------------------+
 type Miniaudio struct {
 	streams.Streamable
 	address    string
 	chunkSize  int
 	sampleRate float64
+	Format     malgo.FormatType
 	echo       bool
 	done       chan interface{}
 }
@@ -35,17 +42,18 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadWriteCloser) error {
 		ctx.Free()
 	}()
 	deviceConfig := malgo.DefaultDeviceConfig(malgo.Playback)
-	deviceConfig.Playback.Format = malgo.FormatS16
+	deviceConfig.Playback.Format = p.Format
 	deviceConfig.Playback.Channels = 2
 	deviceConfig.SampleRate = uint32(p.sampleRate)
 	deviceConfig.Alsa.NoMMap = 2
+
 	// This is the function that's used for sending more data to the device for playback.
 	onSamples := func(pOutputSample, pInputSamples []byte, framecount uint32) {
 		io.ReadFull(reader, pOutputSample)
 		if p.echo {
 			sum := float32(0)
 			for _, v := range pOutputSample {
-				sum += float32(math.MaxUint8 - v)
+				sum += float32(v)
 			}
 			console.PrintFrame(sum)
 		}
@@ -85,7 +93,7 @@ func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 		ctx.Free()
 	}()
 	deviceConfig := malgo.DefaultDeviceConfig(malgo.Capture)
-	deviceConfig.Capture.Format = malgo.FormatS16
+	deviceConfig.Capture.Format = p.Format
 	deviceConfig.Capture.Channels = 2
 	deviceConfig.SampleRate = uint32(p.SampleRate())
 	deviceConfig.Alsa.NoMMap = 1
@@ -105,7 +113,7 @@ func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 				} else {
 					sum := float32(0)
 					for _, v := range pSample {
-						sum += float32(math.MaxUint8 - v)
+						sum += float32(v)
 					}
 					console.PrintFrame(sum)
 				}
