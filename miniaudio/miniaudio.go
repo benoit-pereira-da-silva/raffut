@@ -1,6 +1,7 @@
 package miniaudio
 
 import (
+	"bytes"
 	"github.com/benoit-pereira-da-silva/malgo"
 	"github.com/benoit-pereira-da-silva/raffut/console"
 	"github.com/benoit-pereira-da-silva/raffut/streams"
@@ -25,12 +26,13 @@ type Miniaudio struct {
 	sampleRate float64
 	nbChannels int
 	Format     malgo.FormatType
+	// If defined each packet is Compressed / Decompressed.
+	Compressor streams.Compressor
 	echo       bool
 	done       chan interface{}
 }
 
 func (p *Miniaudio) ReadStreamFrom(c io.ReadWriteCloser) error {
-	var reader io.Reader = c
 	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
 		println(message)
 	})
@@ -48,7 +50,12 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadWriteCloser) error {
 	deviceConfig.Alsa.NoMMap = 2
 	// This is the function that's used for sending more data to the device for playback.
 	onSamples := func(out, int []byte, frameCount uint32) {
-		io.ReadFull(reader, out)
+		if p.Compressor != nil {
+			compressed := bytes.NewReader(out)
+			p.Compressor.Decompress(compressed, c)
+		} else {
+			io.ReadFull(c, out)
+		}
 		if p.echo {
 			sum := float32(0)
 			for _, v := range out {
@@ -78,7 +85,7 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadWriteCloser) error {
 	}
 }
 
-// WriteStreamTo captures the frame using miniaudio.
+// WriteStreamTo captures the audio in using miniaudio.
 // then write them to the stream.
 func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
@@ -97,7 +104,11 @@ func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 	deviceConfig.SampleRate = uint32(p.SampleRate())
 	deviceConfig.Alsa.NoMMap = 1
 	onRecvFrames := func(out, in []byte, frameCount uint32) {
-		_, err = c.Write(in)
+		if p.Compressor != nil {
+			err = p.Compressor.Compress(in, c)
+		} else {
+			_, err = c.Write(in)
+		}
 		if err != nil {
 			// After one write there is always an error
 			// Explanation: https://stackoverflow.com/questions/46697799/golang-udp-connection-refused-on-every-other-write
