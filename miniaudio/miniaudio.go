@@ -46,13 +46,12 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadWriteCloser) error {
 	deviceConfig.Playback.Channels = uint32(p.nbChannels)
 	deviceConfig.SampleRate = uint32(p.sampleRate)
 	deviceConfig.Alsa.NoMMap = 2
-
 	// This is the function that's used for sending more data to the device for playback.
-	onSamples := func(pOutputSample, pInputSamples []byte, frameCount uint32) {
-		io.ReadFull(reader, pOutputSample)
+	onSamples := func(out, int []byte, frameCount uint32) {
+		io.ReadFull(reader, out)
 		if p.echo {
 			sum := float32(0)
-			for _, v := range pOutputSample {
+			for _, v := range out {
 				sum += float32(v)
 			}
 			console.PrintFrame(sum)
@@ -97,8 +96,8 @@ func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 	deviceConfig.Capture.Channels = uint32(p.nbChannels)
 	deviceConfig.SampleRate = uint32(p.SampleRate())
 	deviceConfig.Alsa.NoMMap = 1
-	onRecvFrames := func(pSample2, pSample []byte, frameCount uint32) {
-		_, err = c.Write(pSample)
+	onRecvFrames := func(out, in []byte, frameCount uint32) {
+		_, err = c.Write(in)
 		if err != nil {
 			// After one write there is always an error
 			// Explanation: https://stackoverflow.com/questions/46697799/golang-udp-connection-refused-on-every-other-write
@@ -112,7 +111,7 @@ func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 					<-p.done
 				} else {
 					sum := float32(0)
-					for _, v := range pSample {
+					for _, v := range in {
 						sum += float32(v)
 					}
 					console.PrintFrame(sum)
