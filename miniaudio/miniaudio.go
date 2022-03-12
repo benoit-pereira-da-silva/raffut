@@ -141,9 +141,8 @@ func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 	}
 }
 
-func (p *Miniaudio) Configure(address string, chunkSize int, sampleRate float64, echo bool, done chan interface{}) {
+func (p *Miniaudio) Configure(address string, sampleRate float64, echo bool, done chan interface{}) {
 	p.address = address
-	p.chunkSize = chunkSize
 	p.sampleRate = sampleRate
 	p.echo = echo
 	p.done = done
@@ -152,11 +151,6 @@ func (p *Miniaudio) Configure(address string, chunkSize int, sampleRate float64,
 // Address correspond to the <IP or Name:PORT>
 func (p *Miniaudio) Address() string {
 	return p.address
-}
-
-// ChunkSize is the size of the stream packet
-func (p *Miniaudio) ChunkSize() int {
-	return p.chunkSize
 }
 
 // SampleRate is the sample rate :)

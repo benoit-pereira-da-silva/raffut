@@ -22,7 +22,7 @@ var sIdx = 0
 type Console struct {
 	streams.Streamable
 	address    string
-	chunkSize  int
+	ChunkSize  int
 	sampleRate float64
 	echo       bool
 	done       chan interface{}
@@ -38,10 +38,10 @@ func (p *Console) WriteStreamTo(c io.ReadWriteCloser) error {
 	p.echo = p.Simulate
 	if p.Simulate {
 		// Simulation mode
-		st := time.Duration(p.chunkSize) * (time.Second / time.Duration(p.sampleRate))
-		buffer := make([]float32, p.chunkSize)
+		st := time.Duration(p.ChunkSize) * (time.Second / time.Duration(p.sampleRate))
+		buffer := make([]float32, p.ChunkSize)
 		for {
-			for idx := 0; idx < p.chunkSize; idx++ {
+			for idx := 0; idx < p.ChunkSize; idx++ {
 				buffer[idx] = rand.Float32()
 			}
 			binary.Write(c, binary.BigEndian, &buffer)
@@ -65,7 +65,7 @@ func (p *Console) WriteStreamTo(c io.ReadWriteCloser) error {
 }
 
 func (p *Console) print(c io.ReadWriteCloser) {
-	buffer := make([]float32, p.chunkSize)
+	buffer := make([]float32, p.ChunkSize)
 	for {
 		select {
 		case <-p.done:
@@ -144,9 +144,8 @@ func vMax(v int) int {
 	return frameMax
 }
 
-func (p *Console) Configure(address string, chunkSize int, sampleRate float64, echo bool, done chan interface{}) {
+func (p *Console) Configure(address string, sampleRate float64, echo bool, done chan interface{}) {
 	p.address = address
-	p.chunkSize = chunkSize
 	p.sampleRate = sampleRate
 	p.echo = echo
 	p.done = done
@@ -155,11 +154,6 @@ func (p *Console) Configure(address string, chunkSize int, sampleRate float64, e
 // Address correspond to the <IP or Name:PORT>
 func (p *Console) Address() string {
 	return p.address
-}
-
-// ChunkSize is the size of the stream packet
-func (p *Console) ChunkSize() int {
-	return p.chunkSize
 }
 
 // SampleRate is the sample rate :)

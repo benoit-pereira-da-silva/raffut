@@ -6,7 +6,7 @@ import "io"
 type Streamable interface {
 
 	// Configure is the designated configuration method
-	Configure(address string, chunkSize int, sampleRate float64, echo bool, done chan interface{})
+	Configure(address string, sampleRate float64, echo bool, done chan interface{})
 
 	// ReadStreamFrom reads the chunks from the stream.
 	ReadStreamFrom(c io.ReadWriteCloser) error
@@ -16,9 +16,6 @@ type Streamable interface {
 
 	// Address correspond to the <IP or Name:PORT>
 	Address() string
-
-	// ChunkSize is the size of the stream packet
-	ChunkSize() int
 
 	// SampleRate is the sample rate :)
 	SampleRate() float64
