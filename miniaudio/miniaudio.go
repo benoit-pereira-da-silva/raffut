@@ -48,7 +48,7 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadWriteCloser) error {
 	deviceConfig.Alsa.NoMMap = 2
 
 	// This is the function that's used for sending more data to the device for playback.
-	onSamples := func(pOutputSample, pInputSamples []byte, framecount uint32) {
+	onSamples := func(pOutputSample, pInputSamples []byte, frameCount uint32) {
 		io.ReadFull(reader, pOutputSample)
 		if p.echo {
 			sum := float32(0)
@@ -97,7 +97,7 @@ func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 	deviceConfig.Capture.Channels = 2
 	deviceConfig.SampleRate = uint32(p.SampleRate())
 	deviceConfig.Alsa.NoMMap = 1
-	onRecvFrames := func(pSample2, pSample []byte, framecount uint32) {
+	onRecvFrames := func(pSample2, pSample []byte, frameCount uint32) {
 		_, err = c.Write(pSample)
 		if err != nil {
 			// After one write there is always an error
