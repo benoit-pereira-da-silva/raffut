@@ -22,8 +22,8 @@ import (
 type Miniaudio struct {
 	streams.Streamable
 	address    string
-	chunkSize  int
 	sampleRate float64
+	nbChannels int
 	Format     malgo.FormatType
 	echo       bool
 	done       chan interface{}
@@ -43,7 +43,7 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadWriteCloser) error {
 	}()
 	deviceConfig := malgo.DefaultDeviceConfig(malgo.Playback)
 	deviceConfig.Playback.Format = p.Format
-	deviceConfig.Playback.Channels = 2
+	deviceConfig.Playback.Channels = uint32(p.nbChannels)
 	deviceConfig.SampleRate = uint32(p.sampleRate)
 	deviceConfig.Alsa.NoMMap = 2
 
@@ -94,7 +94,7 @@ func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 	}()
 	deviceConfig := malgo.DefaultDeviceConfig(malgo.Capture)
 	deviceConfig.Capture.Format = p.Format
-	deviceConfig.Capture.Channels = 2
+	deviceConfig.Capture.Channels = uint32(p.nbChannels)
 	deviceConfig.SampleRate = uint32(p.SampleRate())
 	deviceConfig.Alsa.NoMMap = 1
 	onRecvFrames := func(pSample2, pSample []byte, frameCount uint32) {
@@ -103,7 +103,7 @@ func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 			// After one write there is always an error
 			// Explanation: https://stackoverflow.com/questions/46697799/golang-udp-connection-refused-on-every-other-write
 			// " Because UDP has no real connection and there is no ACK for any packets sent,
-			// the best a "connected" UDP socket can do to simulate a send failure is to save the ICMP response,
+			// the best a "connected" UDP socket can do to simulate a failure is to save the ICMP response,
 			// and return it as an error on the next write."
 		} else {
 			if p.echo {
@@ -141,9 +141,10 @@ func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 	}
 }
 
-func (p *Miniaudio) Configure(address string, sampleRate float64, echo bool, done chan interface{}) {
+func (p *Miniaudio) Configure(address string, sampleRate float64, nbChannels int, echo bool, done chan interface{}) {
 	p.address = address
 	p.sampleRate = sampleRate
+	p.nbChannels = nbChannels
 	p.echo = echo
 	p.done = done
 }
@@ -156,6 +157,11 @@ func (p *Miniaudio) Address() string {
 // SampleRate is the sample rate :)
 func (p *Miniaudio) SampleRate() float64 {
 	return p.sampleRate
+}
+
+// NbChannels stereo = 2
+func (p *Miniaudio) NbChannels() int {
+	return p.nbChannels
 }
 
 // Echo if responding true prints the flow in the stdio

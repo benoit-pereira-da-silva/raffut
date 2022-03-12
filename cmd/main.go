@@ -22,25 +22,25 @@ func main() {
 		case "receive":
 			// "raffut receive"192.168.1.4:8383"
 			streamer := &miniaudio.Miniaudio{Format: malgo.FormatS16}
-			streamer.Configure(address, sampleRate, true, nil)
+			streamer.Configure(address, sampleRate, 2, true, nil)
 			err = streams.ReceiveUDP(streamer)
 		case "send":
 			// raffut send "192.168.1.4:8383"
 			streamer := &miniaudio.Miniaudio{Format: malgo.FormatS16}
-			streamer.Configure(address, sampleRate, false, nil)
+			streamer.Configure(address, sampleRate, 2, false, nil)
 			err = streams.SendUDP(streamer)
 		case "send-noise":
 			// raffut send-noise "192.168.1.4:8383"
 			// can be used on devices that does have audio support to test.
 			streamer := &console.Console{ChunkSize: 256}
-			streamer.Configure(address, sampleRate, false, nil)
+			streamer.Configure(address, sampleRate, 2, false, nil)
 			streamer.Simulate = true
 			err = streams.SendUDP(streamer)
 		case "show-in-console":
 			// raffut show-in-console "192.168.1.4:8383"
 			// can be used to test the UDP connection visually without sound.
 			streamer := &console.Console{ChunkSize: 256}
-			streamer.Configure(address, sampleRate, true, nil)
+			streamer.Configure(address, sampleRate, 2, true, nil)
 			err = streams.ReceiveUDP(streamer)
 		default:
 			err = fmt.Errorf("unsupported sub command \"%s\"", os.Args[1])

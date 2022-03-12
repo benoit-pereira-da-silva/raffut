@@ -24,6 +24,7 @@ type Console struct {
 	address    string
 	ChunkSize  int
 	sampleRate float64
+	nbChannels int
 	echo       bool
 	done       chan interface{}
 	Simulate   bool // If set to true we generate random noise.
@@ -144,8 +145,9 @@ func vMax(v int) int {
 	return frameMax
 }
 
-func (p *Console) Configure(address string, sampleRate float64, echo bool, done chan interface{}) {
+func (p *Console) Configure(address string, sampleRate float64, nbChannels int, echo bool, done chan interface{}) {
 	p.address = address
+	p.nbChannels = nbChannels
 	p.sampleRate = sampleRate
 	p.echo = echo
 	p.done = done
@@ -159,6 +161,11 @@ func (p *Console) Address() string {
 // SampleRate is the sample rate :)
 func (p *Console) SampleRate() float64 {
 	return p.sampleRate
+}
+
+// NbChannels stereo = 2
+func (p *Console) NbChannels() int {
+	return p.nbChannels
 }
 
 // Echo if responding true prints the flow in the stdio

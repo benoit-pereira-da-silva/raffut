@@ -6,7 +6,7 @@ import "io"
 type Streamable interface {
 
 	// Configure is the designated configuration method
-	Configure(address string, sampleRate float64, echo bool, done chan interface{})
+	Configure(address string, sampleRate float64, nbChannels int, echo bool, done chan interface{})
 
 	// ReadStreamFrom reads the chunks from the stream.
 	ReadStreamFrom(c io.ReadWriteCloser) error
@@ -19,6 +19,9 @@ type Streamable interface {
 
 	// SampleRate is the sample rate :)
 	SampleRate() float64
+
+	// NbChannels stereo = 2
+	NbChannels() int
 
 	// Echo if responding true prints the flow in the stdio
 	Echo() bool
