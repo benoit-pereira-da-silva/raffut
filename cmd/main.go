@@ -22,12 +22,14 @@ func main() {
 		switch subCmd {
 		case "receive":
 			// "raffut receive"192.168.1.4:8383"
-			streamer := &miniaudio.Miniaudio{Format: malgo.FormatS16, Compressor: &streams.S2Compressor{}}
+			//streamer := &miniaudio.Miniaudio{Format: malgo.FormatS16, Compressor: &streams.NoCompressor{}}
+			streamer := &miniaudio.Miniaudio{Format: malgo.FormatS16, Compressor: nil}
 			streamer.Configure(address, sampleRate, 2, true, nil)
 			err = streams.ReceiveUDP(streamer)
 		case "send":
 			// raffut send "192.168.1.4:8383"
-			streamer := &miniaudio.Miniaudio{Format: malgo.FormatS16, Compressor: &streams.S2Compressor{}}
+			//streamer := &miniaudio.Miniaudio{Format: malgo.FormatS16, Compressor: &streams.NoCompressor{}}
+			streamer := &miniaudio.Miniaudio{Format: malgo.FormatS16, Compressor: nil}
 			streamer.Configure(address, sampleRate, 2, false, nil)
 			err = streams.SendUDP(streamer)
 		case "send-noise":

@@ -32,6 +32,8 @@ type Miniaudio struct {
 	done       chan interface{}
 }
 
+// ReadStreamFrom receive the stream
+// plays the audio via miniaudio.
 func (p *Miniaudio) ReadStreamFrom(c io.ReadWriteCloser) error {
 	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
 		println(message)
@@ -51,8 +53,7 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadWriteCloser) error {
 	// This is the function that's used for sending more data to the device for playback.
 	onSamples := func(out, int []byte, frameCount uint32) {
 		if p.Compressor != nil {
-			compressed := bytes.NewReader(out)
-			p.Compressor.Decompress(compressed, c)
+			_ = p.Compressor.Decompress(bytes.NewReader(out), c)
 		} else {
 			io.ReadFull(c, out)
 		}
@@ -86,7 +87,7 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadWriteCloser) error {
 }
 
 // WriteStreamTo captures the audio in using miniaudio.
-// then write them to the stream.
+// then send them to the stream.
 func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
 		println(message)
@@ -103,9 +104,9 @@ func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 	deviceConfig.Capture.Channels = uint32(p.nbChannels)
 	deviceConfig.SampleRate = uint32(p.SampleRate())
 	deviceConfig.Alsa.NoMMap = 1
-	onRecvFrames := func(out, in []byte, frameCount uint32) {
+	onRecFrames := func(out, in []byte, frameCount uint32) {
 		if p.Compressor != nil {
-			err = p.Compressor.Compress(in, c)
+			_ = p.Compressor.Compress(in, c)
 		} else {
 			_, err = c.Write(in)
 		}
@@ -131,7 +132,7 @@ func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 		}
 	}
 	captureCallbacks := malgo.DeviceCallbacks{
-		Data: onRecvFrames,
+		Data: onRecFrames,
 	}
 	device, err := malgo.InitDevice(ctx.Context, deviceConfig, captureCallbacks)
 	if err != nil {
