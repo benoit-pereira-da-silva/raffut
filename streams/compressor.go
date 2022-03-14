@@ -1,25 +1,23 @@
 package streams
 
-import (
-	"io"
-)
-
 // Compressor defines the interface for compression providers
 type Compressor interface {
-	Compress(src []byte, dst io.Writer) error
-	Decompress(src io.Reader, dst io.Writer) error
+	Compress(src []byte) (res []byte, err error)
+	Decompress(src []byte) (res []byte, err error)
 }
 
 type NoCompressor struct {
 	Compressor
 }
 
-func (c *NoCompressor) Compress(src []byte, dst io.Writer) error {
-	_, err := dst.Write(src)
-	return err
+func NewNoCompressor() *NoCompressor {
+	return &NoCompressor{}
 }
 
-func (c *NoCompressor) Decompress(src io.Reader, dst io.Writer) error {
-	_, err := io.Copy(dst, src)
-	return err
+func (c *NoCompressor) Compress(src []byte) (res []byte, err error) {
+	return src, nil
+}
+
+func (c *NoCompressor) Decompress(src []byte) (res []byte, err error) {
+	return src, nil
 }

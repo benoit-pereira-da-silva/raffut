@@ -1,7 +1,7 @@
 package miniaudio
 
 import (
-	"bytes"
+	"encoding/binary"
 	"github.com/benoit-pereira-da-silva/malgo"
 	"github.com/benoit-pereira-da-silva/raffut/console"
 	"github.com/benoit-pereira-da-silva/raffut/streams"
@@ -9,7 +9,7 @@ import (
 )
 
 // Miniaudio Streamable support.
-// Source: [Miniaudio](http://https://miniaud.io)
+// Source: [Miniaudio](https://miniaud.io)
 // "Miniaudio is an audio playback and capture library for C and C++.
 // It's made up of a single source file, has no external dependencies and is released into the public domain."
 // We use the embedded go bindings [malgo](https://github.com/gen2brain/malgo)
@@ -23,9 +23,9 @@ import (
 type Miniaudio struct {
 	streams.Streamable
 	address    string
-	sampleRate float64
-	nbChannels int
-	Format     malgo.FormatType
+	sampleRate float64          // Default 441000hz
+	nbChannels int              // Default Stereo = 2 two channels
+	Format     malgo.FormatType // Default malgo.FormatS16
 	// If defined each packet is Compressed / Decompressed.
 	Compressor streams.Compressor
 	echo       bool
@@ -34,7 +34,7 @@ type Miniaudio struct {
 
 // ReadStreamFrom receive the stream
 // plays the audio via miniaudio.
-func (p *Miniaudio) ReadStreamFrom(c io.ReadWriteCloser) error {
+func (p *Miniaudio) ReadStreamFrom(c io.ReadCloser) error {
 	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
 		println(message)
 	})
@@ -51,18 +51,29 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadWriteCloser) error {
 	deviceConfig.SampleRate = uint32(p.sampleRate)
 	deviceConfig.Alsa.NoMMap = 2
 	// This is the function that's used for sending more data to the device for playback.
-	onSamples := func(out, int []byte, frameCount uint32) {
+	onSamples := func(out, in []byte, frameCount uint32) {
 		if p.Compressor != nil {
-			_ = p.Compressor.Decompress(bytes.NewReader(out), c)
+			// Read the length header
+			lenHeader := make([]byte, 4)
+			_, _ = io.ReadAtLeast(c, lenHeader, 4)
+			cl := binary.BigEndian.Uint32(lenHeader)
+			// Then read the data.
+			bl := int(cl) + 4
+			var b = make([]byte, bl)
+			_, err = io.ReadFull(c, b)
+			// Decompress ignoring the length header.
+			b = b[4:]
+			b, err = p.Compressor.Decompress(b)
+			if err != nil {
+				// shall we log the decompression error?
+			} else {
+				copy(out, b)
+			}
 		} else {
 			io.ReadFull(c, out)
 		}
 		if p.echo {
-			sum := float32(0)
-			for _, v := range out {
-				sum += float32(v)
-			}
-			console.PrintFrame(sum)
+			p.printBytes(out)
 		}
 	}
 	deviceCallbacks := malgo.DeviceCallbacks{
@@ -88,7 +99,7 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadWriteCloser) error {
 
 // WriteStreamTo captures the audio in using miniaudio.
 // then send them to the stream.
-func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
+func (p *Miniaudio) WriteStreamTo(c io.WriteCloser) error {
 	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
 		println(message)
 	})
@@ -106,7 +117,18 @@ func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 	deviceConfig.Alsa.NoMMap = 1
 	onRecFrames := func(out, in []byte, frameCount uint32) {
 		if p.Compressor != nil {
-			_ = p.Compressor.Compress(in, c)
+			// ts := time.Now()
+			b, _ := p.Compressor.Compress(in)
+			// elapsed := time.Since(ts)
+			// Compute the length header.
+			cl := uint32(len(b))
+			lenHeader := make([]byte, 4)
+			binary.BigEndian.PutUint32(lenHeader, cl)
+			//println("Compression:",  len(b), "<-", len(in), elapsed.Microseconds())
+			// Prepend the uint32 len header
+			b = append(lenHeader, b...)
+			// Write the length header and the compressed frames
+			_, err = c.Write(b)
 		} else {
 			_, err = c.Write(in)
 		}
@@ -118,16 +140,7 @@ func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 			// and return it as an error on the next write."
 		} else {
 			if p.echo {
-				if err != nil {
-					println(err.Error())
-					<-p.done
-				} else {
-					sum := float32(0)
-					for _, v := range in {
-						sum += float32(v)
-					}
-					console.PrintFrame(sum)
-				}
+				p.printBytes(in)
 			}
 		}
 	}
@@ -148,6 +161,26 @@ func (p *Miniaudio) WriteStreamTo(c io.ReadWriteCloser) error {
 			case <-p.done:
 				return nil
 			}
+		}
+	}
+}
+
+func (p *Miniaudio) printBytes(bsl []byte) {
+	sum := float32(0)
+	b := make([]byte, 4)
+	rx := 0
+	for idx, v := range bsl {
+		b[rx] = v
+		rx += 1
+		if rx == 4 {
+			u := uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24 // LittleEndian
+			sum += float32(u)
+			rx = 0
+		}
+		// 441 is divisible by : 1, 3, 7, 9, 21, 49, 63, 147, 441.
+		if idx%(147) == 0 {
+			console.PrintFrame(sum)
+			sum = 0
 		}
 	}
 }

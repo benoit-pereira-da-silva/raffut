@@ -30,12 +30,12 @@ type Console struct {
 	Simulate   bool // If set to true we generate random noise.
 }
 
-func (p *Console) ReadStreamFrom(c io.ReadWriteCloser) error {
+func (p *Console) ReadStreamFrom(c io.ReadCloser) error {
 	p.print(c)
 	return nil
 }
 
-func (p *Console) WriteStreamTo(c io.ReadWriteCloser) error {
+func (p *Console) WriteStreamTo(c io.WriteCloser) error {
 	p.echo = p.Simulate
 	if p.Simulate {
 		// Simulation mode
@@ -60,12 +60,12 @@ func (p *Console) WriteStreamTo(c io.ReadWriteCloser) error {
 		return nil
 	} else {
 		//
-		p.print(c)
+		//p.print(c)
 	}
 	return nil
 }
 
-func (p *Console) print(c io.ReadWriteCloser) {
+func (p *Console) print(c io.ReadCloser) {
 	buffer := make([]float32, p.ChunkSize)
 	for {
 		select {
@@ -82,7 +82,6 @@ func (p *Console) print(c io.ReadWriteCloser) {
 				}
 				PrintFrame(sum)
 			}
-
 		}
 	}
 }
