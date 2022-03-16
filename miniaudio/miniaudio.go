@@ -53,14 +53,16 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadCloser) error {
 	deviceConfig.SampleRate = uint32(p.sampleRate)
 	deviceConfig.Alsa.NoMMap = 2
 	// Instantiate the compression stack.
-	p.stack = streams.NewCompressionStack(p.maxDataLength() * 2)
+	p.stack = streams.NewCompressionStack(p.maxDataLength())
 
 	// This is the function that's used for sending more data to the device for playback.
 	onSamples := func(out, in []byte, frameCount uint32) {
 		if p.Compressor != nil {
 			_, _ = p.stack.FillWith(c)
 			compressedDataLength, framesId, checksum := p.stack.ReadHeader()
-			currentBytes, _ := p.stack.Take(int(compressedDataLength) + streams.HeaderLength)
+			// Take a valid compressed slice including the header.
+			currentBytes, _ := p.stack.Take(streams.HeaderLength + int(compressedDataLength))
+			// Exclude the Header from Decompression.
 			decompressed, decErr := p.Compressor.Decompress(currentBytes[streams.HeaderLength:])
 			println("[ReadStreamFrom] framesId:", framesId, "checksum:", checksum, "=", crc32.ChecksumIEEE(decompressed), "compressedDataLength:", compressedDataLength, "len(currentBytes):", len(currentBytes), "len(decompressed):", len(decompressed), "currentBytes.crc32", crc32.ChecksumIEEE(currentBytes))
 

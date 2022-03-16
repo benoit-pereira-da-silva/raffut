@@ -33,10 +33,12 @@ func (r *CompressionStack) FillWith(reader io.Reader) (n int, err error) {
 		if err != nil {
 			return n, err
 		}
+		fillIdx := 0
 		for _, oneByte := range complement {
-			r.data[r.cursor] = oneByte
-			r.cursor++
+			r.data[fillIdx] = oneByte
+			fillIdx++
 		}
+		r.cursor = 0
 		return n, nil
 	} else {
 		return 0, nil
