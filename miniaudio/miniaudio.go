@@ -1,12 +1,19 @@
 package miniaudio
 
 import (
-	"encoding/binary"
 	"github.com/benoit-pereira-da-silva/malgo"
 	"github.com/benoit-pereira-da-silva/raffut/console"
 	"github.com/benoit-pereira-da-silva/raffut/streams"
+	"hash/crc32"
 	"io"
+	"math"
 )
+
+// headerLength  correspond to the compressed Header length
+// Byte 0 to 3: the compressed bytes Length (Big Endian Uint32)
+// Byte 4 to 11: the incremental frame identifier  (Big Endian Uint64)
+// Byte 12 to 15: the crc32 checksum of the uncompressed payload (Big Endian Uint32)
+const headerLength = 16 // 16 bits
 
 // Miniaudio Streamable support.
 // Source: [Miniaudio](https://miniaud.io)
@@ -35,11 +42,11 @@ type Miniaudio struct {
 // ReadStreamFrom receive the stream
 // plays the audio via miniaudio.
 func (p *Miniaudio) ReadStreamFrom(c io.ReadCloser) error {
-	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
+	ctx, initErr := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
 		println(message)
 	})
-	if err != nil {
-		return err
+	if initErr != nil {
+		return initErr
 	}
 	defer func() {
 		_ = ctx.Uninit()
@@ -53,24 +60,36 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadCloser) error {
 	// This is the function that's used for sending more data to the device for playback.
 	onSamples := func(out, in []byte, frameCount uint32) {
 		if p.Compressor != nil {
-			// Read the length header
-			lenHeader := make([]byte, 4)
-			_, _ = io.ReadAtLeast(c, lenHeader, 4)
-			cl := binary.BigEndian.Uint32(lenHeader)
-			// Then read the data.
-			bl := int(cl) + 4
-			var b = make([]byte, bl)
-			_, err = io.ReadFull(c, b)
+
+			// Decode the Header.
+			header := make([]byte, headerLength)
+			_, _ = io.ReadAtLeast(c, header, headerLength)
+
+			compressedDataLength := uint32(header[3]) | uint32(header[2])<<8 | uint32(header[1])<<16 | uint32(header[0])<<24
+			framesId := uint64(header[11]) | uint64(header[10])<<8 | uint64(header[9])<<16 | uint64(header[8])<<24 |
+				uint64(header[7])<<32 | uint64(header[6])<<40 | uint64(header[5])<<48 | uint64(header[4])<<56
+			checksum := uint32(header[15]) | uint32(header[14])<<8 | uint32(header[13])<<16 | uint32(header[12])<<24
+
+			// Then read all the data including the length header.
+			bl := int(compressedDataLength) + headerLength
+			allBytes := make([]byte, bl)
+			_, _ = io.ReadFull(c, allBytes)
+
 			// Decompress ignoring the length header.
-			b = b[4:]
-			b, err = p.Compressor.Decompress(b)
-			if err != nil {
+			decompressed, decErr := p.Compressor.Decompress(allBytes[headerLength:])
+			println("[ReadStreamFrom] framesId:", framesId, "checksum:", checksum, "=", crc32.ChecksumIEEE(decompressed), "compressedDataLength:", compressedDataLength, "len(allBytes):", len(allBytes), "len(decompressed):", len(decompressed), "allBytes.crc32", crc32.ChecksumIEEE(allBytes))
+
+			if decErr != nil {
 				// shall we log the decompression error?
+				println("ERROR:", compressedDataLength, "->", len(allBytes), decErr.Error())
 			} else {
-				copy(out, b)
+				copy(out, decompressed)
 			}
 		} else {
-			io.ReadFull(c, out)
+			_, err := io.ReadFull(c, out)
+			if err != nil {
+				println(err.Error())
+			}
 		}
 		if p.echo {
 			p.printBytes(out)
@@ -79,14 +98,14 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadCloser) error {
 	deviceCallbacks := malgo.DeviceCallbacks{
 		Data: onSamples,
 	}
-	device, err := malgo.InitDevice(ctx.Context, deviceConfig, deviceCallbacks)
-	if err != nil {
-		return err
+	device, initDevErr := malgo.InitDevice(ctx.Context, deviceConfig, deviceCallbacks)
+	if initDevErr != nil {
+		return initDevErr
 	}
 	defer device.Uninit()
-	err = device.Start()
-	if err != nil {
-		return err
+	startErr := device.Start()
+	if startErr != nil {
+		return startErr
 	} else {
 		for {
 			select {
@@ -100,11 +119,11 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadCloser) error {
 // WriteStreamTo captures the audio in using miniaudio.
 // then send them to the stream.
 func (p *Miniaudio) WriteStreamTo(c io.WriteCloser) error {
-	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
+	ctx, initErr := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
 		println(message)
 	})
-	if err != nil {
-		return err
+	if initErr != nil {
+		return initErr
 	}
 	defer func() {
 		_ = ctx.Uninit()
@@ -115,45 +134,77 @@ func (p *Miniaudio) WriteStreamTo(c io.WriteCloser) error {
 	deviceConfig.Capture.Channels = uint32(p.nbChannels)
 	deviceConfig.SampleRate = uint32(p.SampleRate())
 	deviceConfig.Alsa.NoMMap = 1
+	framesId := uint64(0)
 	onRecFrames := func(out, in []byte, frameCount uint32) {
+		var err error
 		if p.Compressor != nil {
+			checksum := crc32.ChecksumIEEE(in)
 			// ts := time.Now()
-			b, _ := p.Compressor.Compress(in)
+			compressed, _ := p.Compressor.Compress(in)
 			// elapsed := time.Since(ts)
 			// Compute the length header.
-			cl := uint32(len(b))
-			lenHeader := make([]byte, 4)
-			binary.BigEndian.PutUint32(lenHeader, cl)
+			cl := uint32(len(compressed))
+
+			header := make([]byte, headerLength)
+			// Compressed bytes Length Header (Big Endian Uint32)
+			header[0] = byte(cl >> 24)
+			header[1] = byte(cl >> 16)
+			header[2] = byte(cl >> 8)
+			header[3] = byte(cl)
+			// Incremental Frame Identifier (Big Endian encoded Uint64).
+			header[4] = byte(framesId >> 56)
+			header[5] = byte(framesId >> 48)
+			header[6] = byte(framesId >> 40)
+			header[7] = byte(framesId >> 32)
+			header[8] = byte(framesId >> 24)
+			header[9] = byte(framesId >> 16)
+			header[10] = byte(framesId >> 8)
+			header[11] = byte(framesId)
+			// The data Checksum
+			header[12] = byte(checksum >> 24)
+			header[13] = byte(checksum >> 16)
+			header[14] = byte(checksum >> 8)
+			header[15] = byte(checksum)
+
 			//println("Compression:",  len(b), "<-", len(in), elapsed.Microseconds())
 			// Prepend the uint32 len header
-			b = append(lenHeader, b...)
-			// Write the length header and the compressed frames
-			_, err = c.Write(b)
+			allBytes := append(header, compressed...)
+
+			percent := (len(in) - len(allBytes)) * 100 / len(in)
+			println("[WriteStreamTo] framesId:", framesId, "checksum", checksum, "cl:", cl, "len(allData):", len(allBytes), "len(in):", len(in), "%", percent, "allBytes.crc32:", crc32.ChecksumIEEE(allBytes))
+
+			// Write the header and the compressed frames
+			_, err = c.Write(allBytes)
 		} else {
 			_, err = c.Write(in)
 		}
 		if err != nil {
-			// After one write there is always an error
-			// Explanation: https://stackoverflow.com/questions/46697799/golang-udp-connection-refused-on-every-other-write
-			// " Because UDP has no real connection and there is no ACK for any packets sent,
-			// the best a "connected" UDP socket can do to simulate a failure is to save the ICMP response,
-			// and return it as an error on the next write."
+			// UDP has no real connection and no Acknowledgement on any packet transmission.
+			// If there is no receiver c.Write you get a "connection refused"
+			// This is not always the case.
+			println("ERROR:", err.Error())
 		} else {
 			if p.echo {
 				p.printBytes(in)
 			}
 		}
+		if framesId == math.MaxUint64 {
+			// Reinitialize the framesId
+			framesId = 0
+		} else {
+			framesId++
+		}
 	}
 	captureCallbacks := malgo.DeviceCallbacks{
 		Data: onRecFrames,
 	}
-	device, err := malgo.InitDevice(ctx.Context, deviceConfig, captureCallbacks)
-	if err != nil {
-		return err
+	device, initDevErr := malgo.InitDevice(ctx.Context, deviceConfig, captureCallbacks)
+	if initDevErr != nil {
+		return initDevErr
 	}
-	err = device.Start()
-	if err != nil {
-		return err
+	startErr := device.Start()
+	if startErr != nil {
+		return startErr
 	} else {
 		defer device.Uninit()
 		for {

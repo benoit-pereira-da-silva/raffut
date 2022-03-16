@@ -22,20 +22,20 @@ func main() {
 		switch subCmd {
 		case "receive":
 			// "raffut receive"192.168.1.4:8383"
-			compressor := streams.NewHuff0Compressor() // Achieves ~20% lossless compression with 0.5ms latency.
+			// compressor := streams.NewHuff0Compressor() // Achieves ~20% lossless compression with 0.5ms latency.
 			// compressor := streams.NewNoCompressor()
 			// compressor := streams.NewS2Compressor()
 			// compressor := streams.NewFSECompressor()
-			streamer := &miniaudio.Miniaudio{Format: malgo.FormatS16, Compressor: compressor}
-			streamer.Configure(address, sampleRate, 2, true, nil)
+			streamer := &miniaudio.Miniaudio{Format: malgo.FormatS16, Compressor: streams.NewNoCompressor()}
+			streamer.Configure(address, sampleRate, 2, false, nil)
 			err = streams.ReceiveUDP(streamer)
 		case "send":
-			// raffut send "192.168.1.4:8383"
-			compressor := streams.NewHuff0Compressor() // Achieves ~20% lossless compression with 0.5ms latency.
-			//compressor := streams.NewNoCompressor()
+			// raffut send "192.168.1.4:8383"q
+			// compressor := streams.NewHuff0Compressor() // Achieves ~20% lossless compression with 0.5ms latency.
+			// compressor := streams.NewNoCompressor()
 			// compressor := streams.NewS2Compressor()
-			//compressor := streams.NewFSECompressor()
-			streamer := &miniaudio.Miniaudio{Format: malgo.FormatS16, Compressor: compressor}
+			// compressor := streams.NewFSECompressor()
+			streamer := &miniaudio.Miniaudio{Format: malgo.FormatS16, Compressor: streams.NewNoCompressor()}
 			streamer.Configure(address, sampleRate, 2, false, nil)
 			err = streams.SendUDP(streamer)
 		case "send-noise":
