@@ -9,12 +9,6 @@ import (
 	"math"
 )
 
-// headerLength  correspond to the compressed Header length
-// Byte 0 to 3: the compressed bytes Length (Big Endian Uint32)
-// Byte 4 to 11: the incremental frame identifier  (Big Endian Uint64)
-// Byte 12 to 15: the crc32 checksum of the uncompressed payload (Big Endian Uint32)
-const headerLength = 16 // 16 bits
-
 // Miniaudio Streamable support.
 // Source: [Miniaudio](https://miniaud.io)
 // "Miniaudio is an audio playback and capture library for C and C++.
@@ -33,10 +27,11 @@ type Miniaudio struct {
 	sampleRate float64          // Default 441000hz
 	nbChannels int              // Default Stereo = 2 two channels
 	Format     malgo.FormatType // Default malgo.FormatS16
-	// If defined each packet is Compressed / Decompressed.
-	Compressor streams.Compressor
 	echo       bool
 	done       chan interface{}
+	// If defined each packet is Compressed / Decompressed.
+	Compressor streams.Compressor
+	stack      *streams.CompressionStack
 }
 
 // ReadStreamFrom receive the stream
@@ -57,31 +52,21 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadCloser) error {
 	deviceConfig.Playback.Channels = uint32(p.nbChannels)
 	deviceConfig.SampleRate = uint32(p.sampleRate)
 	deviceConfig.Alsa.NoMMap = 2
+	// Instantiate the compression stack.
+	p.stack = streams.NewCompressionStack(p.maxDataLength() * 2)
+
 	// This is the function that's used for sending more data to the device for playback.
 	onSamples := func(out, in []byte, frameCount uint32) {
 		if p.Compressor != nil {
-
-			// Decode the Header.
-			header := make([]byte, headerLength)
-			_, _ = io.ReadAtLeast(c, header, headerLength)
-
-			compressedDataLength := uint32(header[3]) | uint32(header[2])<<8 | uint32(header[1])<<16 | uint32(header[0])<<24
-			framesId := uint64(header[11]) | uint64(header[10])<<8 | uint64(header[9])<<16 | uint64(header[8])<<24 |
-				uint64(header[7])<<32 | uint64(header[6])<<40 | uint64(header[5])<<48 | uint64(header[4])<<56
-			checksum := uint32(header[15]) | uint32(header[14])<<8 | uint32(header[13])<<16 | uint32(header[12])<<24
-
-			// Then read all the data including the length header.
-			bl := int(compressedDataLength) + headerLength
-			allBytes := make([]byte, bl)
-			_, _ = io.ReadFull(c, allBytes)
-
-			// Decompress ignoring the length header.
-			decompressed, decErr := p.Compressor.Decompress(allBytes[headerLength:])
-			println("[ReadStreamFrom] framesId:", framesId, "checksum:", checksum, "=", crc32.ChecksumIEEE(decompressed), "compressedDataLength:", compressedDataLength, "len(allBytes):", len(allBytes), "len(decompressed):", len(decompressed), "allBytes.crc32", crc32.ChecksumIEEE(allBytes))
+			_, _ = p.stack.FillWith(c)
+			compressedDataLength, framesId, checksum := p.stack.ReadHeader()
+			currentBytes, _ := p.stack.Take(int(compressedDataLength) + streams.HeaderLength)
+			decompressed, decErr := p.Compressor.Decompress(currentBytes[streams.HeaderLength:])
+			println("[ReadStreamFrom] framesId:", framesId, "checksum:", checksum, "=", crc32.ChecksumIEEE(decompressed), "compressedDataLength:", compressedDataLength, "len(currentBytes):", len(currentBytes), "len(decompressed):", len(decompressed), "currentBytes.crc32", crc32.ChecksumIEEE(currentBytes))
 
 			if decErr != nil {
 				// shall we log the decompression error?
-				println("ERROR:", compressedDataLength, "->", len(allBytes), decErr.Error())
+				println("ERROR:", compressedDataLength, "->", len(currentBytes), decErr.Error())
 			} else {
 				copy(out, decompressed)
 			}
@@ -116,6 +101,24 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadCloser) error {
 	}
 }
 
+// maxDataLength correspond to the uncompressed length including the compression header.
+// the division 100 is empirically deduced from tests.
+// We are not sure that it is constant.
+func (p *Miniaudio) maxDataLength() int {
+	sampleSize := 0
+	switch p.Format {
+	case malgo.FormatU8:
+		sampleSize = 1
+	case malgo.FormatS16:
+		sampleSize = 2
+	case malgo.FormatS24:
+		sampleSize = 3
+	case malgo.FormatS32, malgo.FormatF32:
+		sampleSize = 4
+	}
+	return (int(p.sampleRate) / 100 * p.nbChannels * sampleSize) + streams.HeaderLength
+}
+
 // WriteStreamTo captures the audio in using miniaudio.
 // then send them to the stream.
 func (p *Miniaudio) WriteStreamTo(c io.WriteCloser) error {
@@ -144,37 +147,17 @@ func (p *Miniaudio) WriteStreamTo(c io.WriteCloser) error {
 			// elapsed := time.Since(ts)
 			// Compute the length header.
 			cl := uint32(len(compressed))
-
-			header := make([]byte, headerLength)
-			// Compressed bytes Length Header (Big Endian Uint32)
-			header[0] = byte(cl >> 24)
-			header[1] = byte(cl >> 16)
-			header[2] = byte(cl >> 8)
-			header[3] = byte(cl)
-			// Incremental Frame Identifier (Big Endian encoded Uint64).
-			header[4] = byte(framesId >> 56)
-			header[5] = byte(framesId >> 48)
-			header[6] = byte(framesId >> 40)
-			header[7] = byte(framesId >> 32)
-			header[8] = byte(framesId >> 24)
-			header[9] = byte(framesId >> 16)
-			header[10] = byte(framesId >> 8)
-			header[11] = byte(framesId)
-			// The data Checksum
-			header[12] = byte(checksum >> 24)
-			header[13] = byte(checksum >> 16)
-			header[14] = byte(checksum >> 8)
-			header[15] = byte(checksum)
+			header := streams.EncodeCompressionHeader(cl, framesId, checksum)
 
 			//println("Compression:",  len(b), "<-", len(in), elapsed.Microseconds())
 			// Prepend the uint32 len header
-			allBytes := append(header, compressed...)
+			currentBytes := append(header, compressed...)
 
-			percent := (len(in) - len(allBytes)) * 100 / len(in)
-			println("[WriteStreamTo] framesId:", framesId, "checksum", checksum, "cl:", cl, "len(allData):", len(allBytes), "len(in):", len(in), "%", percent, "allBytes.crc32:", crc32.ChecksumIEEE(allBytes))
+			percent := (len(in) - len(currentBytes)) * 100 / len(in)
+			println("[WriteStreamTo] framesId:", framesId, "checksum", checksum, "cl:", cl, "len(currentBytes):", len(currentBytes), "len(in):", len(in), "%", percent, "currentBytes.crc32:", crc32.ChecksumIEEE(currentBytes))
 
 			// Write the header and the compressed frames
-			_, err = c.Write(allBytes)
+			_, err = c.Write(currentBytes)
 		} else {
 			_, err = c.Write(in)
 		}
