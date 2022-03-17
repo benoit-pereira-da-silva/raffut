@@ -9,10 +9,10 @@ type Streamable interface {
 	Configure(address string, sampleRate float64, nbChannels int, echo bool, done chan interface{})
 
 	// ReadStreamFrom reads the chunks from the stream.
-	ReadStreamFrom(c io.ReadCloser) error
+	ReadStreamFrom(c io.Reader) error
 
 	// WriteStreamTo writes to the given connection stream
-	WriteStreamTo(c io.WriteCloser) error
+	WriteStreamTo(c io.Writer) error
 
 	// Address correspond to the <IP or Name:PORT>
 	Address() string

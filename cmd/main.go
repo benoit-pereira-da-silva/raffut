@@ -18,8 +18,12 @@ func main() {
 	if len(os.Args) > 2 {
 		subCmd := strings.ToLower(os.Args[1])
 		address := os.Args[2]
-
 		switch subCmd {
+		case "play":
+			// raffut play "http://icecast.radiofrance.fr/franceculture-midfi.mp3"
+			// raffut play ~/Documents/Entrepot/Git/Music/malgoSound/a.mp3
+			ma := &miniaudio.Miniaudio{Format: malgo.FormatS16, Compressor: nil}
+			err = ma.Play(address, false)
 		case "receive":
 			// "raffut receive"192.168.1.4:8383"
 			// NewHuff0Compressor Achieves ~20%/30% lossless compression with 0.5ms latency.

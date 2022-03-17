@@ -35,7 +35,7 @@ type Miniaudio struct {
 
 // ReadStreamFrom receive the stream
 // plays the audio via miniaudio.
-func (p *Miniaudio) ReadStreamFrom(c io.ReadCloser) error {
+func (p *Miniaudio) ReadStreamFrom(c io.Reader) error {
 	ctx, initErr := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
 		println(message)
 	})
@@ -135,7 +135,7 @@ func (p *Miniaudio) maxDataLength() int {
 
 // WriteStreamTo captures the audio in using miniaudio.
 // then send them to the stream.
-func (p *Miniaudio) WriteStreamTo(c io.WriteCloser) error {
+func (p *Miniaudio) WriteStreamTo(c io.Writer) error {
 	ctx, initErr := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
 		println(message)
 	})
