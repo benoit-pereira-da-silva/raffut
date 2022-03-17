@@ -12,7 +12,7 @@ import (
 // 	streamer := &miniaudio.Miniaudio{Format: malgo.FormatS16, Compressor: compressor}
 // ```
 // With a modern processor this compressor
-// delivers an average lossless compression of 20% on PCM data
+// delivers an average lossless compression between 20% to 30% on PCM data
 // with a latency < 0.5 milliseconds for encoding + decoding.
 type Huff0Compressor struct {
 	Compressor

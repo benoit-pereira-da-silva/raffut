@@ -31,7 +31,6 @@ type Miniaudio struct {
 	done       chan interface{}
 	// If defined each packet is Compressed / Decompressed.
 	Compressor streams.Compressor
-	stack      *streams.CompressionStack
 }
 
 // ReadStreamFrom receive the stream
@@ -52,25 +51,38 @@ func (p *Miniaudio) ReadStreamFrom(c io.ReadCloser) error {
 	deviceConfig.Playback.Channels = uint32(p.nbChannels)
 	deviceConfig.SampleRate = uint32(p.sampleRate)
 	deviceConfig.Alsa.NoMMap = 2
-	// Instantiate the compression stack.
-	p.stack = streams.NewCompressionStack(p.maxDataLength())
 
+	data := make([]byte, p.maxDataLength())
+	//compression := 0
+	//counter := 0
 	// This is the function that's used for sending more data to the device for playback.
 	onSamples := func(out, in []byte, frameCount uint32) {
 		if p.Compressor != nil {
-			_, _ = p.stack.FillWith(c)
-			compressedDataLength, framesId, checksum := p.stack.ReadHeader()
-			// Take a valid compressed slice including the header.
-			currentBytes, _ := p.stack.Take(streams.HeaderLength + int(compressedDataLength))
-			// Exclude the Header from Decompression.
-			decompressed, decErr := p.Compressor.Decompress(currentBytes[streams.HeaderLength:])
-			println("[ReadStreamFrom] framesId:", framesId, "checksum:", checksum, "=", crc32.ChecksumIEEE(decompressed), "compressedDataLength:", compressedDataLength, "len(currentBytes):", len(currentBytes), "len(decompressed):", len(decompressed), "currentBytes.crc32", crc32.ChecksumIEEE(currentBytes))
-
-			if decErr != nil {
-				// shall we log the decompression error?
-				println("ERROR:", compressedDataLength, "->", len(currentBytes), decErr.Error())
+			// It is very important to understand that the underlining UDP connection at a given time returns a packet.
+			// Reading twice would read the next packet.
+			// So we use the number of reading bytes to create a new slice (currentBytes).
+			n, _ := c.Read(data)
+			if n == 16 {
+				// Perfect silence.
 			} else {
-				copy(out, decompressed)
+				compressedDataLength, _, _ := streams.ReadHeader(data)
+				currentBytes := make([]byte, n)
+				compressedSegment := data[streams.HeaderLength : compressedDataLength+streams.HeaderLength]
+				decompressed, decErr := p.Compressor.Decompress(compressedSegment)
+				//compression += 100 - (100 * (int(compressedDataLength) + streams.HeaderLength) / p.maxDataLength())
+				//counter++
+				//if counter == 50 {
+				//	println(fmt.Sprintf("Lossless compression: %d%s", compression/counter, "%"))
+				//	counter = 0
+				//	compression = 0
+				//}
+				if decErr != nil {
+					// shall we log the decompression error?
+					println("ERROR:", compressedDataLength, "->", len(currentBytes), decErr.Error())
+				} else {
+					// Copy the PCM data to the audio output
+					copy(out, decompressed)
+				}
 			}
 		} else {
 			_, err := io.ReadFull(c, out)
@@ -144,20 +156,11 @@ func (p *Miniaudio) WriteStreamTo(c io.WriteCloser) error {
 		var err error
 		if p.Compressor != nil {
 			checksum := crc32.ChecksumIEEE(in)
-			// ts := time.Now()
 			compressed, _ := p.Compressor.Compress(in)
-			// elapsed := time.Since(ts)
-			// Compute the length header.
 			cl := uint32(len(compressed))
 			header := streams.EncodeCompressionHeader(cl, framesId, checksum)
-
-			//println("Compression:",  len(b), "<-", len(in), elapsed.Microseconds())
 			// Prepend the uint32 len header
 			currentBytes := append(header, compressed...)
-
-			percent := (len(in) - len(currentBytes)) * 100 / len(in)
-			println("[WriteStreamTo] framesId:", framesId, "checksum", checksum, "cl:", cl, "len(currentBytes):", len(currentBytes), "len(in):", len(in), "%", percent, "currentBytes.crc32:", crc32.ChecksumIEEE(currentBytes))
-
 			// Write the header and the compressed frames
 			_, err = c.Write(currentBytes)
 		} else {
