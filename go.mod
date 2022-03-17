@@ -1,6 +1,6 @@
 module github.com/benoit-pereira-da-silva/raffut
 
-go 1.18
+go 1.15
 
 require (
 	github.com/benoit-pereira-da-silva/malgo v0.10.35
