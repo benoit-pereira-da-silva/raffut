@@ -22,17 +22,15 @@ func main() {
 		switch subCmd {
 		case "receive":
 			// "raffut receive"192.168.1.4:8383"
-			// compressor := streams.NewHuff0Compressor() // Achieves ~20%/30% lossless compression with 0.5ms latency.
-			// compressor := streams.NewNoCompressor()
+			// NewHuff0Compressor Achieves ~20%/30% lossless compression with 0.5ms latency.
+			// You can set the compressor to nil to stream in PCM.
 			streamer := &miniaudio.Miniaudio{Format: malgo.FormatS16, Compressor: streams.NewHuff0Compressor()}
 			streamer.Configure(address, sampleRate, 2, false, nil)
 			err = streams.ReceiveUDP(streamer)
 		case "send":
 			// raffut send "192.168.1.4:8383"q
-			// compressor := streams.NewHuff0Compressor() // Achieves ~20% lossless compression with 0.5ms latency.
-			// compressor := streams.NewNoCompressor()
-			// compressor := streams.NewS2Compressor()
-			// compressor := streams.NewFSECompressor()
+			// NewHuff0Compressor Achieves ~20%/30% lossless compression with 0.5ms latency.
+			// You can set the compressor to nil to stream in PCM.
 			streamer := &miniaudio.Miniaudio{Format: malgo.FormatS16, Compressor: streams.NewHuff0Compressor()}
 			streamer.Configure(address, sampleRate, 2, false, nil)
 			err = streams.SendUDP(streamer)
