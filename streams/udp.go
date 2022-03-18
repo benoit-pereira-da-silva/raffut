@@ -5,7 +5,7 @@ import (
 )
 
 func ReceiveUDP(s Streamable) (err error) {
-	rAddr, err := net.ResolveUDPAddr("udp", (s).Address())
+	rAddr, err := net.ResolveUDPAddr("udp", s.Address())
 	if err != nil {
 		return err
 	}
@@ -21,7 +21,7 @@ func ReceiveUDP(s Streamable) (err error) {
 }
 
 func SendUDP(s Streamable) (err error) {
-	rAddr, err := net.ResolveUDPAddr("udp", (s).Address())
+	rAddr, err := net.ResolveUDPAddr("udp", s.Address())
 	if err != nil {
 		return err
 	}
