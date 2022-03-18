@@ -66,7 +66,6 @@ func (p *Miniaudio) ReadStreamFrom(c io.Reader) error {
 				// Perfect silence.
 			} else {
 				compressedDataLength, _, _ := streams.ReadHeader(data)
-				currentBytes := make([]byte, n)
 				compressedSegment := data[streams.HeaderLength : compressedDataLength+streams.HeaderLength]
 				decompressed, decErr := p.Compressor.Decompress(compressedSegment)
 				//compression += 100 - (100 * (int(compressedDataLength) + streams.HeaderLength) / p.maxDataLength())
@@ -78,7 +77,7 @@ func (p *Miniaudio) ReadStreamFrom(c io.Reader) error {
 				//}
 				if decErr != nil {
 					// shall we log the decompression error?
-					println("ERROR:", compressedDataLength, "->", len(currentBytes), decErr.Error())
+					println("Compressor did trigger an error on Decompress:", decErr.Error())
 				} else {
 					// Copy the PCM data to the audio output
 					copy(out, decompressed)
